@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flashcards Multi-Set + SM-2</title>
 <style>
-  body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f0f0; }
-  .flashcard { width: 300px; height: 200px; perspective: 1000px; user-select: none; margin-top: 20px;}
-  .card-inner { width: 100%; height: 100%; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 24px; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; }
+  body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; margin: 0; padding: 20px; background: #f0f0f0; }
+  .flashcard { width: 300px; height: 200px; perspective: 1000px; user-select: none; margin-top: 20px; }
+  .card-inner { width: 100%; height: 100%; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 24px; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; position: relative; }
   .flashcard.flipped .card-inner { transform: rotateY(180deg); }
   .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; justify-content: center; align-items: center; padding: 20px; }
   .card-back { transform: rotateY(180deg); background: #4caf50; color: white; }
-  .extra { margin-top:10px; font-size:16px; color:#555; }
+  .extra { margin-top:10px; font-size:16px; color:#555; min-height:20px; text-align:center; }
   select { font-size: 16px; padding: 5px; margin-top: 20px; }
-  #score { margin-top: 20px; font-size: 18px; }
+  #score { margin-top: 10px; font-size: 16px; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 </head>
@@ -26,13 +26,14 @@
   <div class="card-inner">
     <div class="card-front"></div>
     <div class="card-back"></div>
-    <div class="extra"></div>
   </div>
 </div>
 
+<div id="extra" class="extra"></div>
 <div id="score"></div>
 
 <script>
+// --- SETS ---
 const flashcardSets = {
   "Swedish Verbs A1": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTxIepyNc9GUZ3GhE6CLoFE3fSL9-6luVdRvuAmK7m7lC36kSTvHyCf_Sj35-nMHzKv1bXfhLlTqlQo/pub?gid=0&single=true&output=csv",
   "Swedish Preterite A1": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKvDFc1S0JNQtS7KzkT8oXsV749TK42MLQ5zTh8aqheGEcWdxk6MXkqxpfPmZraPGGjYs7njCoUl-2/pub?gid=0&single=true&output=csv"
@@ -46,15 +47,18 @@ Object.keys(flashcardSets).forEach(name => {
   setSelector.appendChild(option);
 });
 
+// --- STATE ---
 let flashcards = [];
 let currentIndex = 0;
 let isFlipped = false;
 let cardData = {};
 let storageKey = "";
 
+// --- DOM ---
 const card = document.getElementById("flashcard");
 const frontDiv = card.querySelector(".card-front");
 const backDiv = card.querySelector(".card-back");
+const extraDiv = document.getElementById("extra");
 const scoreDiv = document.getElementById("score");
 
 // --- UPDATE SCORE DISPLAY ---
@@ -76,12 +80,12 @@ function initializeCard(cardObj) {
   }
 }
 
-// --- LOAD FLASHCARDS FROM SHEET ---
+// --- LOAD FLASHCARDS ---
 async function loadFlashcardsFromSheet(url) {
   const res = await fetch(url);
   const csvText = await res.text();
-
   const parsed = Papa.parse(csvText, { header: false, skipEmptyLines: true });
+
   flashcards = parsed.data.map(row => ({
     front: row[0].trim(),
     back: row[1].trim(),
@@ -93,15 +97,13 @@ async function loadFlashcardsFromSheet(url) {
 }
 
 // --- SHOW CARD ---
-const extraDiv = document.getElementById("extra");
-
 function showCard() {
   const current = flashcards[currentIndex];
   initializeCard(current);
 
   frontDiv.textContent = current.front;
   backDiv.textContent = current.back;
-  extraDiv.textContent = current.note; // show optional third column
+  extraDiv.textContent = current.note || "";
 
   card.classList.remove("flipped");
   isFlipped = false;
@@ -154,6 +156,7 @@ function markIncorrect() {
   nextCard();
 }
 
+// --- NEXT CARD ---
 function nextCard() {
   const now = Date.now();
   const dueCards = flashcards.filter(c => { initializeCard(c); return cardData[c.front].due <= now; });
@@ -168,14 +171,17 @@ function nextCard() {
   showCard();
 }
 
+// --- NO CARDS MESSAGE ---
 function showNoCardsMessage() {
   card.classList.remove("flipped");
   frontDiv.textContent = "🎉 All done!";
   backDiv.textContent = "No cards due right now.";
+  extraDiv.textContent = "";
   isFlipped = false;
   scoreDiv.textContent = "";
 }
 
+// --- SAVE FUNCTION ---
 function saveSM2() {
   localStorage.setItem(storageKey, JSON.stringify(cardData));
 }
@@ -189,7 +195,7 @@ setSelector.addEventListener("change", () => {
 });
 
 // --- INITIAL LOAD ---
-setSelector.dispatchEvent(new Event("change")); // load first set
+setSelector.dispatchEvent(new Event("change"));
 </script>
 
 </body>
