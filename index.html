@@ -12,24 +12,24 @@
 
 <!-- Menu -->
 <div id="menu">
-  <h2>Select Flashcard Set:</h2>
-  <select id="setSelector">
-    <option value="" selected disabled>Select a sheet...</option>
-  </select>
+  <h2>Select a Flashcard Set</h2>
+  <div id="setList"></div>
 </div>
 
 <!-- Flashcard area -->
 <div id="flashcardArea" class="hidden">
-  <button id="backToMenu">← Back to Menu</button>
-    <div id="flashcard" class="flashcard">
-      <div class="card-inner">
-        <div class="card-front"></div>
-        <div class="card-back">
-          <div class="answer-text"></div>
-          <div class="extra"></div>
-        </div>
+  <button id="backToMenu">← Back</button>
+
+  <div id="flashcard" class="flashcard">
+    <div class="card-inner">
+      <div class="card-front"></div>
+      <div class="card-back">
+        <div class="answer-text"></div>
+        <div class="extra"></div>
       </div>
     </div>
+  </div>
+
   <div id="score"></div>
 </div>
 
@@ -120,16 +120,31 @@ function showCard(){
 function saveSM2(){ localStorage.setItem(storageKey,JSON.stringify(cardData)); }
 
 // --- Load sheets ---
-async function loadSheetNames(){
-  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets(properties(title))&key=${API_KEY}`;
-  const res=await fetch(url); const json=await res.json();
-  const sheets=json.sheets||[];
-  sheets.forEach(s=>{
-    const opt=document.createElement("option");
-    opt.value=s.properties.title;
-    opt.textContent=s.properties.title;
-    setSelector.appendChild(opt);
+const setList = document.getElementById("setList");
+
+async function loadSheetNames() {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets(properties(title))&key=${API_KEY}`;
+  const res = await fetch(url);
+  const json = await res.json();
+  const sheets = json.sheets || [];
+
+  sheets.forEach(s => {
+    const btn = document.createElement("button");
+    btn.textContent = s.properties.title;
+    btn.className = "set-button";
+    btn.onclick = () => selectSheet(s.properties.title);
+    setList.appendChild(btn);
   });
+}
+
+function selectSheet(sheetName) {
+  storageKey = `sm2Data-${sheetName}`;
+  cardData = JSON.parse(localStorage.getItem(storageKey)) || {};
+
+  menuDiv.classList.add("hidden");
+  flashcardArea.classList.remove("hidden");
+
+  loadFlashcardsFromSheet(sheetName);
 }
 
 // --- Load sheet values ---
@@ -142,16 +157,6 @@ async function loadFlashcardsFromSheet(sheetName){
   flashcards.forEach(initializeCard);
   showCard();
 }
-
-// --- Menu selection ---
-setSelector.addEventListener("change",()=>{
-  const sheet=setSelector.value; if(!sheet) return;
-  storageKey=`sm2Data-${sheet}`;
-  cardData=JSON.parse(localStorage.getItem(storageKey))||{};
-  menuDiv.classList.add("hidden");
-  flashcardArea.classList.remove("hidden");
-  loadFlashcardsFromSheet(sheet);
-});
 
 // --- Back to menu ---
 backBtn.addEventListener("click",()=>{

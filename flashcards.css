@@ -1,101 +1,168 @@
-/* flashcards.css */
+/* ========= GLOBAL ========= */
 
-/* --- BODY & GENERAL --- */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Force full-width vertical layout */
+
 body {
-  font-family: sans-serif;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f4f6f8;
+  min-height: 100vh;
+
+  display: block;   /* ← IMPORTANT: not flex */
+}
+
+/* Both screens take full width */
+#menu,
+#flashcardArea {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;      /* center horizontally */
+  padding: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  margin: 0;
-  padding: 20px;
-  background: #f0f0f0;
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
-select, button {
-  font-size: 16px;
-  padding: 5px;
-  margin-top: 20px;
+/* ========= MENU ========= */
+
+h2 {
+  margin-bottom: 20px;
 }
 
-/* --- FLASHCARD CONTAINER --- */
-.flashcard {
-  width: 300px;
-  height: 200px;
-  perspective: 1000px;
-  user-select: none;
-  margin-top: 20px;
-}
-
-/* --- CARD INNER (handles flipping) --- */
-.card-inner {
+#setList {
   width: 100%;
-  height: 100%;
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform 0.6s;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.set-button {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  border-radius: 12px;
+  border: none;
+  background: white;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.set-button:active {
+  transform: scale(0.97);
+}
+
+/* ========= BACK BUTTON ========= */
+
+#backToMenu {
+  align-self: flex-start;
+  margin-bottom: 20px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #666;
   cursor: pointer;
 }
 
-/* --- FLIPPED STATE --- */
+/* ========= FLASHCARD ========= */
+
+.flashcard {
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 3 / 2;
+  perspective: 1200px;
+  margin: 0 auto 16px auto;
+}
+
+/* Inner wrapper */
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.5s ease;
+  transform-style: preserve-3d;
+}
+
+/* Flip animation */
 .flashcard.flipped .card-inner {
   transform: rotateY(180deg);
 }
 
-/* --- FRONT & BACK SIDES --- */
+/* ========= CARD FACES ========= */
+
 .card-front,
 .card-back {
   position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 10px;
-  backface-visibility: hidden;
-  display: flex; 
-  flex-direction: column;
-  justify-content: center; 
-  align-items: center;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  inset: 0;
+  border-radius: 18px;
   padding: 20px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+
+  transform-style: preserve-3d;
 }
 
-/* --- FRONT SIDE --- */
+/* FRONT */
 .card-front {
   background: white;
-  color: black;
+  z-index: 2;
+  transform: rotateY(0deg);
 }
 
-/* --- BACK SIDE --- */
+/* BACK */
 .card-back {
   background: #4caf50;
   color: white;
   transform: rotateY(180deg);
 }
 
-/* --- ANSWER & EXTRA --- */
+/* Text */
+
+.card-front {
+  font-size: clamp(18px, 4vw, 24px);
+  font-weight: 500;
+}
+
 .answer-text {
-  font-size: 24px;
-  text-align: center;
+  font-size: clamp(20px, 5vw, 26px);
+  font-weight: 600;
 }
 
 .extra {
   margin-top: 10px;
-  font-size: 16px;
-  color: #fff;
-  text-align: center;
-  min-height: 20px;
+  font-size: clamp(14px, 3.5vw, 16px);
+  opacity: 0.9;
 }
 
-/* --- SCORE --- */
+/* ========= SCORE ========= */
+
 #score {
   margin-top: 10px;
-  font-size: 16px;
+  font-size: 14px;
+  opacity: 0.6;
+  text-align: center;
 }
 
-/* --- BACK TO MENU BUTTON --- */
-#backToMenu {
-  margin-bottom: 10px;
+/* ========= MOBILE POLISH ========= */
+
+@media (max-height: 600px) {
+  .flashcard {
+    max-height: 55vh;
+  }
 }
