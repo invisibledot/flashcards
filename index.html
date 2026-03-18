@@ -3,35 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flashcards Multi-Set + SM-2</title>
+<title>Flashcards Multi-Set + SM-2 (Google Sheets API)</title>
 <style>
-  body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; margin: 0; padding: 20px; background: #f0f0f0; height: 100vh; }
-  .screen { display: none; flex-direction: column; align-items: center; width: 100%; }
-  .screen.active { display: flex; }
+  body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; margin: 0; padding: 20px; background: #f0f0f0; }
+  .hidden { display: none; }
   .flashcard { width: 300px; height: 200px; perspective: 1000px; user-select: none; margin-top: 20px; }
-  .card-inner { width: 100%; height: 100%; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 24px; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; position: relative; }
+  .card-inner { width: 100%; height: 100%; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 24px; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; position: relative; }
   .flashcard.flipped .card-inner { transform: rotateY(180deg); }
   .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
   .card-back { transform: rotateY(180deg); background: #4caf50; color: white; }
-  .extra { margin-top:10px; font-size:16px; color:#fff; min-height:20px; text-align:center; }
-  button { font-size: 16px; padding: 5px 10px; margin: 10px; }
-  select { font-size: 16px; padding: 5px; margin-top: 20px; }
-  #score { margin-top: 10px; font-size: 16px; color:#333; }
+  .extra { margin-top:10px; font-size:16px; color:#fff; text-align:center; min-height:20px; }
+  select, button { font-size: 16px; padding: 5px; margin-top: 20px; }
+  #score { margin-top: 10px; font-size: 16px; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 </head>
 <body>
 
-<!-- MENU SCREEN -->
-<div id="menuScreen" class="screen active">
+<!-- Menu -->
+<div id="menu">
   <h2>Select Flashcard Set:</h2>
-  <select id="setSelector"></select>
-  <button id="startBtn">Start</button>
+  <select id="setSelector">
+    <option value="" selected disabled>Select a flashcard set...</option>
+  </select>
 </div>
 
-<!-- FLASHCARD SCREEN -->
-<div id="cardScreen" class="screen">
-  <button id="backBtn">← Back to Menu</button>
+<!-- Flashcard area -->
+<div id="flashcardArea" class="hidden">
+  <button id="backToMenu">← Back to Menu</button>
   <div id="flashcard" class="flashcard">
     <div class="card-inner">
       <div class="card-front"></div>
@@ -45,31 +43,27 @@
 </div>
 
 <script>
+// --- CONFIG ---
+const SPREADSHEET_ID = "1Qi7v0SdLPNeXWnNXu_taQcl0UfST1nVDJoBH0HXi_QE";
+const API_KEY = "AIzaSyDySSVjnljTxz1qvAhvUzHmbzF0eC8GVIQ";
+
+// Map of sets → sheet names
 const flashcardSets = {
-  "Swedish Verbs A1": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTxIepyNc9GUZ3GhE6CLoFE3fSL9-6luVdRvuAmK7m7lC36kSTvHyCf_Sj35-nMHzKv1bXfhLlTqlQo/pub?gid=0&single=true&output=csv",
-  "Swedish Preterite A1": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKvDFc1S0JNQtS7KzkT8oXsV749TK42MLQ5zTh8aqheGEcWdxk6MXkqxpfPmZraPGGjYs7njCoUl-2/pub?gid=0&single=true&output=csv"
+  "Swedish Verbs A1": `Sheet1`,
+  "Swedish Preterite A1": `Sheet2`
 };
 
-// DOM elements
-const menuScreen = document.getElementById("menuScreen");
-const cardScreen = document.getElementById("cardScreen");
+// --- DOM ---
+const menuDiv = document.getElementById("menu");
+const flashcardArea = document.getElementById("flashcardArea");
 const setSelector = document.getElementById("setSelector");
-const startBtn = document.getElementById("startBtn");
-const backBtn = document.getElementById("backBtn");
+const backBtn = document.getElementById("backToMenu");
 const card = document.getElementById("flashcard");
 const frontDiv = card.querySelector(".card-front");
 const backDiv = card.querySelector(".card-back");
 const answerDiv = backDiv.querySelector(".answer-text");
 const extraDiv = backDiv.querySelector(".extra");
 const scoreDiv = document.getElementById("score");
-
-// Populate set selector
-Object.keys(flashcardSets).forEach(name => {
-  const option = document.createElement("option");
-  option.value = name;
-  option.textContent = name;
-  setSelector.appendChild(option);
-});
 
 // --- STATE ---
 let flashcards = [];
@@ -78,75 +72,64 @@ let isFlipped = false;
 let cardData = {};
 let storageKey = "";
 
-// --- SCREEN SWITCH ---
-function showMenu() {
-  cardScreen.classList.remove("active");
-  menuScreen.classList.add("active");
+// --- Populate menu ---
+Object.keys(flashcardSets).forEach(name => {
+  const option = document.createElement("option");
+  option.value = name;
+  option.textContent = name;
+  setSelector.appendChild(option);
+});
+
+// --- Initialize card for SM-2 ---
+function initializeCard(cardObj) {
+  if (!cardData[cardObj.front]) {
+    cardData[cardObj.front] = { repetition:0, interval:0, ease:2.5, due: Date.now() };
+  }
 }
 
-function showCards() {
-  menuScreen.classList.remove("active");
-  cardScreen.classList.add("active");
-}
-
-// --- LOAD SHEET ---
-async function loadFlashcardsFromSheet(url) {
-  const res = await fetch(url);
-  const csvText = await res.text();
-  const parsed = Papa.parse(csvText, { header: false, skipEmptyLines: true });
-
-  flashcards = parsed.data.map(row => ({
-    front: row[0].trim(),
-    back: row[1].trim(),
-    note: row[2] ? row[2].trim() : ""
-  }));
-
-  flashcards.forEach(initializeCard);
-  nextCard();
-}
-
-// --- SHOW CARD ---
+// --- Show card ---
 function showCard() {
   const current = flashcards[currentIndex];
   initializeCard(current);
-
   frontDiv.textContent = current.front;
   answerDiv.textContent = current.back;
   extraDiv.textContent = current.note || "";
-
   card.classList.remove("flipped");
   isFlipped = false;
   updateScoreDisplay();
 }
 
-// --- TAP TO FLIP ---
+// --- Score display ---
+function updateScoreDisplay() {
+  const cardObj = flashcards[currentIndex];
+  const data = cardData[cardObj.front];
+  scoreDiv.textContent = `Repetition: ${data.repetition}, Interval: ${data.interval} day(s)`;
+}
+
+// --- Tap to flip ---
 card.addEventListener("click", () => {
   card.classList.toggle("flipped");
   isFlipped = !isFlipped;
 });
 
-// --- SWIPE LOGIC ---
+// --- Swipe logic ---
 let startX = 0;
-card.addEventListener("touchstart", (e) => { startX = e.touches[0].clientX; }, { passive: true });
-card.addEventListener("touchend", (e) => {
-  const endX = e.changedTouches[0].clientX;
-  const deltaX = endX - startX;
+card.addEventListener("touchstart", e => startX = e.touches[0].clientX, { passive:true });
+card.addEventListener("touchend", e => {
+  const deltaX = e.changedTouches[0].clientX - startX;
   const threshold = 50;
-
-  if (deltaX > threshold) {
-    if (!isFlipped) { card.classList.add("flipped'); isFlipped=true;}
-    else { markCorrect(); }
-  } else if (deltaX < -threshold) { markIncorrect(); }
+  if (deltaX > threshold) { if(!isFlipped){ card.classList.add("flipped"); isFlipped=true } else markCorrect(); }
+  else if (deltaX < -threshold) markIncorrect();
 });
 
-// --- SM-2 FUNCTIONS ---
+// --- SM-2 functions ---
 function markCorrect() {
   const cardObj = flashcards[currentIndex];
   const data = cardData[cardObj.front];
   data.repetition += 1;
-  if (data.repetition === 1) data.interval = 1;
-  else if (data.repetition === 2) data.interval = 3;
-  else data.interval = Math.round(data.interval * data.ease);
+  if(data.repetition===1) data.interval=1;
+  else if(data.repetition===2) data.interval=3;
+  else data.interval = Math.round(data.interval*data.ease);
   data.due = Date.now() + data.interval*24*60*60*1000;
   saveSM2();
   nextCard();
@@ -162,65 +145,57 @@ function markIncorrect() {
   nextCard();
 }
 
-// --- NEXT CARD ---
+// --- Next card ---
 function nextCard() {
   const now = Date.now();
   const dueCards = flashcards.filter(c => { initializeCard(c); return cardData[c.front].due <= now; });
-
-  if (dueCards.length === 0) {
-    showNoCardsMessage();
-    return;
-  }
-
-  const randomCard = dueCards[Math.floor(Math.random() * dueCards.length)];
-  currentIndex = flashcards.findIndex(c => c.front === randomCard.front);
+  if(dueCards.length===0){ showNoCardsMessage(); return; }
+  const randomCard = dueCards[Math.floor(Math.random()*dueCards.length)];
+  currentIndex = flashcards.findIndex(c=>c.front===randomCard.front);
   showCard();
 }
 
-// --- NO CARDS MESSAGE ---
 function showNoCardsMessage() {
   card.classList.remove("flipped");
   frontDiv.textContent = "🎉 All done!";
   answerDiv.textContent = "No cards due right now.";
   extraDiv.textContent = "";
-  isFlipped = false;
-  scoreDiv.textContent = "";
+  isFlipped=false;
+  scoreDiv.textContent="";
 }
 
-// --- SAVE / INITIALIZE ---
-function saveSM2() {
-  localStorage.setItem(storageKey, JSON.stringify(cardData));
+// --- Save ---
+function saveSM2() { localStorage.setItem(storageKey, JSON.stringify(cardData)); }
+
+// --- Load from Google Sheets API ---
+async function loadFlashcardsFromSheet(sheetName) {
+  const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${sheetName}?key=${API_KEY}`;
+  const res = await fetch(apiUrl);
+  const json = await res.json();
+  const rows = json.values || [];
+  flashcards = rows.filter(r=>r.length>=2).map(r=>({ front:r[0].trim(), back:r[1].trim(), note:r[2]?r[2].trim():"" }));
+  flashcards.forEach(initializeCard);
+  showCard();
 }
 
-function initializeCard(cardObj) {
-  if (!cardData[cardObj.front]) {
-    cardData[cardObj.front] = { repetition:0, interval:0, ease:2.5, due:Date.now() };
-  }
-}
-
-function updateScoreDisplay() {
-  const cardObj = flashcards[currentIndex];
-  const data = cardData[cardObj.front];
-  scoreDiv.textContent = `Repetition: ${data.repetition}, Interval: ${data.interval} day(s)`;
-}
-
-// --- BUTTON EVENTS ---
-startBtn.addEventListener("click", () => {
+// --- Menu selection ---
+setSelector.addEventListener("change", () => {
   const selectedSet = setSelector.value;
+  if(!selectedSet) return;
   storageKey = `sm2Data-${selectedSet}`;
   cardData = JSON.parse(localStorage.getItem(storageKey)) || {};
-  showCards();
+  menuDiv.classList.add("hidden");
+  flashcardArea.classList.remove("hidden");
   loadFlashcardsFromSheet(flashcardSets[selectedSet]);
 });
 
+// --- Back to menu ---
 backBtn.addEventListener("click", () => {
-  saveSM2();
-  showMenu();
+  menuDiv.classList.remove("hidden");
+  flashcardArea.classList.add("hidden");
 });
 
-// --- INITIAL LOAD ---
-showMenu();
+// --- Done ---
 </script>
-
 </body>
 </html>
