@@ -34,7 +34,7 @@ const flashcards = [
 
 let currentIndex = 0;
 let isFlipped = false;
-let scores = {}; // track correct/incorrect
+let scores = JSON.parse(localStorage.getItem("flashcardScores")) || {};
 
 const card = document.getElementById("flashcard");
 const frontDiv = card.querySelector(".card-front");
@@ -89,12 +89,14 @@ card.addEventListener("touchend", (e) => {
 function markCorrect() {
   const key = flashcards[currentIndex].front;
   scores[key] = (scores[key] || 0) + 1;
+  saveScores();
   nextCard();
 }
 
 function markIncorrect() {
   const key = flashcards[currentIndex].front;
   scores[key] = (scores[key] || 0) - 1;
+  saveScores();
   nextCard();
 }
 
@@ -102,6 +104,11 @@ function markIncorrect() {
 function nextCard() {
   currentIndex = (currentIndex + 1) % flashcards.length;
   showCard();
+}
+
+// --- SAVE SCORES ---
+function saveScores() {
+  localStorage.setItem("flashcardScores", JSON.stringify(scores));
 }
 
 // --- INITIAL LOAD ---
