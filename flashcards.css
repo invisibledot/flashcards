@@ -214,3 +214,23 @@ h2 {
     max-height: 55vh;
   }
 }
+
+/* ========= PROGRESS BAR ========= */
+
+#progressContainer {
+  width: 90%;
+  max-width: 500px;
+  height: 8px;
+  background: rgba(0,0,0,0.1);
+  border-radius: 20px;
+  margin: 15px auto 10px auto;
+  overflow: hidden;
+}
+
+#progressBar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #4CAF50, #81C784);
+  transition: width 0.35s ease;
+  border-radius: 20px;
+}
